@@ -1,8 +1,41 @@
 ---
 title: "Activity 8 - Mini-competition"
+Authors: "Group C - James Stewart"
 output: github_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning = False, message = False}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+```
+
+## Reading in the data
+
+```{R}
+inventory <- read_csv("./data/inventory.csv")
+```
+## Exploratory Analysis
+```{R}
+
+## grouped sums
+inventory %>%
+  group_by(item_no) %>%
+  summarise(min = min(sold), max = max(sold), mean = mean(sold), total_sold = sum(sold))
+
+#getting list of unique items
+items = unique(inventory$item_no)
+
+## graphing 
+for(x in items) {
+plot = inventory %>%
+    filter(item_no == x) %>%
+    ggplot(aes(x = week, y = sold, group = item_no)) + 
+    geom_point() +
+    ggtitle(x)
+
+print(plot)
+}
+
 ```
