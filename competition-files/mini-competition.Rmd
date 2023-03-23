@@ -33,9 +33,66 @@ plot = inventory %>%
     filter(item_no == x) %>%
     ggplot(aes(x = week, y = sold, group = item_no)) + 
     geom_point() +
+    geom_line() +
     ggtitle(x)
 
 print(plot)
 }
 
 ```
+
+
+
+## creating new variables to be used by the models
+```{R}
+inventory_change <- inventory %>%
+  add_column(
+    num_last_week = NA,
+    num_two_week = NA,
+    week_last_sold = NA,
+    num_last_sold = NA
+  )
+
+num_last_week <- 0
+num_two_week <- 0
+week_last_sold <- 0
+num_last_sold <- 0
+current_item <- 0
+for( i in 1:nrow(inventory_change)){
+  # checks if still on the same item
+  # if new week -> sets current item to new item_no and all values to zero
+  if (current_item != inventory_change$item_no[i]){
+    num_last_week <- 0
+    num_two_week <- 0
+    week_last_sold <- 0
+    num_last_sold <- 0
+    current_item <- inventory_change$item_no[i]
+  }
+  
+  #have to check that the values of week are not 0 for all vars
+  if(inventory_change$week[i] != 0){
+    num_last_week <- inventory_change$sold[i-1]
+    
+    # changing the values for num_last_sold and week_last_sold if there was a sale the previous week
+    if(inventory_change$sold[i-1] > 0){
+      week_last_sold <-  inventory_change$week[i-1]
+      num_last_sold <- inventory_change$sold[i-1]
+    }
+    
+    if(inventory_change$week[i] > 1){
+      num_two_week <- inventory_change$sold[i-2]
+    }
+  }
+  
+  inventory_change$num_last_sold[i] = num_last_sold
+  inventory_change$num_last_week[i] = num_last_week
+  inventory_change$num_two_week[i] = num_two_week
+  inventory_change$week_last_sold[i] = week_last_sold
+}
+
+head(inventory_change)
+```
+
+
+
+
