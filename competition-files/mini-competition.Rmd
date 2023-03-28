@@ -28,7 +28,7 @@ inventory %>%
 items = unique(inventory$item_no)
 
 ## graphing 
-for(x in items) {
+for(x in items[1:5]) {
 plot = inventory %>%
     filter(item_no == x) %>%
     ggplot(aes(x = week, y = sold, group = item_no)) + 
@@ -41,11 +41,23 @@ print(plot)
 
 ```
 
+There are a lot of items that don't have little to no weeks with any sold. This will hinder any model that we create. Because of this, I am going to remove these items.
+
+```{R}
+grouped_by_items <- inventory %>%
+  filter(sold > 0) %>%
+  group_by(item_no) %>%
+  summarise(weeks_sold = n()) %>%
+  filter(weeks_sold > 3)
+
+inventory_filtered <- inventory %>%
+  filter(item_no %in% as.list(grouped_by_items$item_no))
+```
 
 
 ## creating new variables to be used by the models
 ```{R}
-inventory_change <- inventory %>%
+inventory_change <- inventory_filtered %>%
   add_column(
     num_last_week = NA,
     num_two_week = NA,
@@ -92,6 +104,142 @@ for( i in 1:nrow(inventory_change)){
 
 head(inventory_change)
 ```
+
+There seems to be two different types of items in terms of the trends for their sale. Some that sell pretty much the same amount each time, and some that are very sporadic.Separating these might make it easier to create a model.
+
+```{R}
+grouped_by_items <- inventory_change %>%
+  filter(sold > 0) %>%
+  group_by(item_no) %>%
+  summarize(unique_sold_count = n_distinct(sold)) %>%
+  filter(unique_sold_count > 2)
+
+multiple_items <- inventory_change %>%
+  filter(item_no %in% as.list(grouped_by_items$item_no))
+
+few_items <- inventory_change %>%
+  filter(!item_no %in% as.list(grouped_by_items$item_no))
+
+```
+
+# working with the multiple_items list
+
+## subsetting data into test and prediciton
+
+I'm pulling out weeks 50-53 to verify the validity of the models created
+```{R}
+train <- multiple_items %>%
+  filter(week < 50)
+
+test <- multiple_items %>%
+  filter(week >= 50)
+
+test_x = multiple_items %>%
+  select(!sold)
+
+test_y = multiple_items %>%
+  select(sold)
+```
+
+## running lm on this
+```{R}
+# training full model
+lm1 <- lm(sold ~ item_no + week + num_last_week + num_two_week + week_last_sold + num_last_sold, data = train)
+tidy(lm1)
+summary(lm1)
+
+# training model without num_two_week
+lm2 <- lm(sold ~ item_no + week + num_last_week + week_last_sold + num_last_sold, data = train)
+tidy(lm2)
+summary(lm2)
+```
+
+# adding in interaction effects
+
+There obviously seems to be a relationship between interaction and week so we will see if creating interaction affects will make a change
+```{R}
+# item_no * week
+lm3 <- lm(sold ~ item_no + week + (item_no * week) + num_last_week + num_last_sold + week_last_sold, data = train)
+summary(lm3)
+
+# this didn't seem to add anything beneficial will try other interaction affects
+lm4 <- lm(sold ~ item_no + week + num_last_week + num_last_sold + week_last_sold + (num_last_week * week), data = train)
+summary(lm4)
+
+lm5 <- lm(sold ~ item_no + week + num_last_week + num_last_sold + week_last_sold + (num_last_sold * week), data = train)
+summary(lm5)
+
+lm6 <- lm(sold ~ item_no + week + num_last_week + num_last_sold + week_last_sold + (week_last_sold * week), data = train)
+summary(lm6)
+
+lm7 <- lm(sold ~ item_no + week + num_last_week + num_last_sold + week_last_sold + (num_last_sold * num_last_week), data = train)
+summary(lm7)
+
+lm8 <- lm(sold ~ item_no + week + num_last_week + num_last_sold + week_last_sold + (num_last_sold * week_last_sold), data = train)
+summary(lm8)
+
+lm9 <- lm(sold ~ item_no + week + num_last_week + num_last_sold + week_last_sold + (week_last_sold * num_last_week), data = train)
+summary(lm9)
+```
+
+I want to see what we can do with only one item
+```{R}
+test_1 <- train %>%
+  filter(item_no == "BPONG50P2PWE")
+head(test_1)
+
+lmmf1 <- lm(sold ~ week + num_last_week + num_last_sold + week_last_sold + (num_last_week * week), data = test_1)
+summary(lmmf1)
+
+```
+
+# working with the few_items list
+
+## subsetting data into test and prediciton
+
+I'm pulling out weeks 50-53 to verify the validity of the models created
+```{R}
+train <- few_items %>%
+  filter(week < 50)
+
+test <- few_items %>%
+  filter(week >= 50)
+
+test_x = few_items %>%
+  select(!sold)
+
+test_y = few_items %>%
+  select(sold)
+```
+
+## running lm on this
+```{R}
+# training full model
+lm1 <- lm(sold ~ item_no + week + num_last_week + num_two_week + week_last_sold + num_last_sold, data = train)
+summary(lm1)
+
+predictions = predict.lm(lm1, test_x)
+ggplot() +
+  geom_point(aes(
+    x = predictions,
+    y = test_y$sold
+  ))
+```
+
+# adding in interaction effects
+
+There obviously seems to be a relationship between interaction and week so we will see if creating interaction affects will make a change
+```{R}
+# item_no * week
+lm2 <- lm(sold ~ item_no + week + (item_no * week) + num_last_week + num_last_sold + week_last_sold, data = train)
+summary(lm2)
+```
+
+```{R}
+
+```
+
+
 
 
 
